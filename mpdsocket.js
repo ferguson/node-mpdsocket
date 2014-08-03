@@ -25,20 +25,20 @@ function mpdSocket(host,port) {
 		this.port = port;
 	}
 
+	this.callbacks = [];
+	this.commands = [];
+	this.i = 0;
+	this.response = {};
+	this.isOpen = false;
+	this.socket = null;
+	this.version = undefined;
+	this.host = null;
+	this.port = null;
+
 	this.open(this.host,this.port);
 }
 
 mpdSocket.prototype = {
-	callbacks: [],
-	commands: [],
-	i: 0,
-	response: {},
-	isOpen: false,
-	socket: null,
-	version: "0",
-	host: null,
-	port: null,
-
 	handleData: function(data) {
 		var lines = data.split("\n");
 		for (var l in lines) {
@@ -49,7 +49,7 @@ mpdSocket.prototype = {
 				this.response = {};
 				return;
 			} else if (lines[l].match(/^OK MPD/)) {
-				if (this.version == "0") {
+				if (!this.version) {
 					this.version = lines[l].split(' ')[2];
 					return;
 				}
@@ -94,7 +94,12 @@ mpdSocket.prototype = {
 	open: function(host,port) {
 		var self = this;
 		if (!(this.isOpen)) {
-			this.socket = net.createConnection(port,host);
+			if (host.indexOf('/') === 0) {
+        // support unix domain sockets
+        this.socket = net.createConnection(host);
+			} else {
+        this.socket = net.createConnection(port,host);
+			}
 			this.socket.setEncoding('UTF-8');
 			this.socket.addListener('connect',function() { self.isOpen = true; });
 			this.socket.addListener('data',function(data) { self.handleData.call(self,data); self._send(); });
