@@ -27,8 +27,8 @@ function mpdSocket(host,port) {
 
 	this.callbacks = [];
 	this.commands = [];
-	this.i = 0;
-	this.response = {};
+	this.buffer = '';
+	this.lines = [];
 	this.isOpen = false;
 	this.socket = null;
 	this.version = undefined;
@@ -39,58 +39,98 @@ function mpdSocket(host,port) {
 }
 
 mpdSocket.prototype = {
-	handleData: function(data) {
-		var lines = data.split("\n");
-		for (var l in lines) {
-			if (lines[l].match(/^ACK/)) {
-				this.response._error = lines[l].substr(10);
-				this.response._OK = false;
-				this.callbacks.shift()(this.response)
-				this.response = {};
-				return;
-			} else if (lines[l].match(/^OK MPD/)) {
-				if (!this.version) {
-					this.version = lines[l].split(' ')[2];
-					return;
-				}
-			} else if (lines[l].match(/^OK$/)) {
-				this.response._OK = true;
-				this.i = 0;
-				this.callbacks.shift()(this.response);
-				this.response = {};
-				return;
-			} else {
-				var attr = lines[l].substr(0,lines[l].indexOf(":"));
-				var value = lines[l].substr((lines[l].indexOf(":"))+1);
-				value = value.replace(/^\s+|\s+$/g, ''); // trim whitespace
-				if (this.response._ordered_list != true) {
-					if (typeof(this.response[attr]) != 'undefined') {
-						//make ordered list
-						var tempResponse = new Object;
-						tempResponse[++(this.i)] = this.response;
-						this.response = tempResponse;
-						this.response._ordered_list = true;
-						this.response[++(this.i)] = new Object;
-						this.response[this.i][attr] = value;
-					} else {
-						this.response[attr] = value;
-					}
-				} else {
-					if (typeof(this.response[(this.i)][attr]) != 'undefined' || attr == "playlist" || attr == "file" || attr == "directory") {
-						this.response[++(this.i)] = new Object;
-						this.response[this.i][attr] = value;
-					} else {
-						this.response[this.i][attr] = value;
-					}
-				}
-			}
+	bufferData: function(data) {
+		this.buffer += data;
+		var pos = 0;
+		var i;
+		while ((i = this.buffer.indexOf('\n', pos)) > -1) {
+				var line = this.buffer.substr(pos, i-pos);
+				this.handleLine(line);
+				pos = i+1;	// the +1 skips the \n
+		}
+		if (pos < this.buffer.length) {
+				// incomplete line, save it for the next round
+				this.buffer = this.buffer.substr(pos);
+		} else {
+				this.buffer = '';
 		}
 	},
-	
+
+	handleLine: function(line) {
+		if (!this.version && line.match(/^OK MPD /)) {
+			this.version = line.split(' ')[2];
+			//console.log('mpd protocol version ' + this.version);
+			return;
+		}
+
+		this.lines.push(line);
+
+		if (line.match(/^OK$|^ACK \[/)) {
+			this.handleLines(this.lines);
+			this.lines = [];
+		}
+	},
+
+	handleLines: function(lines) {
+		var response = [new Object];
+		var first_attr = false;
+		for (var i in lines) {
+				var line = lines[i];
+				if (line.match(/^OK$|^ACK \[/)) {
+						break;
+				} else {
+						var colon = line.indexOf(':');
+						var attr = line.substr(0,colon);
+						var value = line.substr(colon+1);
+						value = value.replace(/^\s+|\s+$/g, ''); // trim whitespace
+						if (typeof(response[response.length-1][attr]) !== 'undefined') {
+								if (attr === first_attr) {
+										// assume that when the first attribute we saw is repeated,
+										// it represents the start of a new object
+										response.push(new Object);
+										response[response.length-1][attr] = value;
+								} else {
+										// otherwise handle multiple occurances of an attribute as an array
+										response[response.length-1][attr] = [].concat(
+												response[response.length-1][attr],
+												value
+												); // [].concat() will convert it to an array if it's not already one
+								}
+						} else {
+								response[response.length-1][attr] = value;
+								if (!first_attr) {
+										first_attr = attr;
+								}
+						}
+				}
+		}
+
+// uncomment this next section if you want the responses
+// to be compatiable with old versions of mpdsocket
+// otherwise all responses are returned in a list
+//		// convert single line responses to not be in a 1 item list
+//		// except playlist, file, and directory are always lists
+//		if (["playlist", "file", "directory"].indexOf(first_attr) === -1) {
+//			if (response.length === 1) {
+//				response = response[0];
+//			}
+//		}
+
+		response._verbatim = line;
+		response._OK = (line === 'OK');
+		if (!response._OK) {
+				//console.log(line);
+				if (line) {
+						response._error = line.substr(line.indexOf('}') +2);
+				}
+		}
+		return this.callbacks.shift()(response);
+	},
+
 	on: function(event, fn) {
 		this.socket.on(event,fn);
 	},
-		
+
 	open: function(host,port) {
 		var self = this;
 		if (!(this.isOpen)) {
