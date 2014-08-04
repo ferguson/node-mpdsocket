@@ -32,8 +32,6 @@ function mpdSocket(host,port) {
 	this.isOpen = false;
 	this.socket = null;
 	this.version = undefined;
-	this.host = null;
-	this.port = null;
 
 	this.open(this.host,this.port);
 }
@@ -46,7 +44,7 @@ mpdSocket.prototype = {
 		while ((i = this.buffer.indexOf('\n', pos)) > -1) {
 				var line = this.buffer.substr(pos, i-pos);
 				this.handleLine(line);
-				pos = i+1;	// the +1 skips the \n
+				pos = i+1;  // the +1 skips the \n
 		}
 		if (pos < this.buffer.length) {
 				// incomplete line, save it for the next round
@@ -63,6 +61,7 @@ mpdSocket.prototype = {
 			return;
 		}
 
+		//console.log('<', line);
 		this.lines.push(line);
 
 		if (line.match(/^OK$|^ACK \[/)) {
@@ -106,7 +105,7 @@ mpdSocket.prototype = {
 		}
 
 // uncomment this next section if you want the responses
-// to be compatiable with old versions of mpdsocket
+// to be (more) compatiable with old versions of mpdsocket
 // otherwise all responses are returned in a list
 //		// convert single line responses to not be in a 1 item list
 //		// except playlist, file, and directory are always lists
@@ -116,7 +115,6 @@ mpdSocket.prototype = {
 //			}
 //		}
 
-		response._verbatim = line;
 		response._OK = (line === 'OK');
 		if (!response._OK) {
 				//console.log(line);
@@ -135,14 +133,14 @@ mpdSocket.prototype = {
 		var self = this;
 		if (!(this.isOpen)) {
 			if (host.indexOf('/') === 0) {
-        // support unix domain sockets
-        this.socket = net.createConnection(host);
+				// support unix domain sockets
+				this.socket = net.createConnection(host);
 			} else {
-        this.socket = net.createConnection(port,host);
+				this.socket = net.createConnection(port,host);
 			}
+			this.isOpen = true;
 			this.socket.setEncoding('UTF-8');
-			this.socket.addListener('connect',function() { self.isOpen = true; });
-			this.socket.addListener('data',function(data) { self.handleData.call(self,data); self._send(); });
+			this.socket.addListener('data',function(data) { self.bufferData.call(self,data); self._send(); });
 			this.socket.addListener('end',function() { self.isOpen = false; });
 		}
 	},
@@ -152,6 +150,7 @@ mpdSocket.prototype = {
 	},
 
 	send: function(req,callback) {
+		//console.log('>', req);
 		if (this.isOpen) {
 			this.callbacks.push(callback);
 			this.commands.push(req);
@@ -164,6 +163,6 @@ mpdSocket.prototype = {
 			});
 		}
 	}
-}
+};
 
 module.exports = mpdSocket;
