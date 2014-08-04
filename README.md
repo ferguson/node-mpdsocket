@@ -1,6 +1,6 @@
 # node-mpdsocket
 
-`mpdsocket` is a node.js client for MPD. It is loosely based on (but aims to be more usable than) [robinduckett/node-mpd](https://www.github.com/robinduckett/node-mpd).
+`mpdsocket` is a node.js client for MPD. It is forked from [ewenig/node-mpdsocket](https://www.github.com/ewenig/node-mpdsocket), which is loosely based on (but aims to be more usable than) [robinduckett/node-mpd](https://www.github.com/robinduckett/node-mpd).
 
 ## Usage
 
@@ -15,7 +15,10 @@
 		});
 	});
 
+Also check out the [Otto code it was writted to be used by](https://github.com/ferguson/otto/blob/master/otto.mpd.coffee).
+
 ### Functions
+
 * `mpdSocket.on(event,fn)` adds event handlers to the net.Socket object directly.
 * `mpdSocket.send(req,callback)` sends a request to MPD with a callback function.
 
@@ -25,20 +28,13 @@
 
 * `_OK` denotes that the request was completed successfully.
 * `_error` is the error returned if `_OK` is false.
-* `_ordered_list` denotes that the object is an ordered list (see section below).
+* ~~`_ordered_list` denotes that the object is an ordered list~~ Output has changed, see below
 
-### Ordered lists
-Some MPD commands, like `listplaylists`, will return an ordered list of objects. The structure of these objects looks like this:
+### Output
 
-	{ '1':
-		{ playlist: 'playlist-1',
-		  'Last-Modified': '2011-03-19T06:39:44Z' },
-	  '2':
-		{ playlist: 'playlist-2',
-		  'Last-Modified': '2011-03-19T06:41:08Z' },
-	  _ordered_list: true,
-	  _OK: true
-	}
+Output is different from ewenig/node-mpdsocket. It isn't necessarily sane or stable yet. Biggest difference is everything returned is wrapped in an array, even things that only ever return a single result. Also, _ordered_list isn't currently added.
+
+### Example
 
 ### License
 `node-mpdsocket` is made available under the [MIT License](http://www.opensource.org/licenses/mit-license.php). A copy of the license is distributed with this software.
