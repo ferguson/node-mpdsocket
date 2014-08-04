@@ -34,8 +34,6 @@ Also check out the [Otto code it was writted to be used by](https://github.com/f
 
 Output is different from ewenig/node-mpdsocket. It isn't necessarily sane or stable yet. Biggest difference is everything returned is wrapped in an array, even things that only ever return a single result. Also, _ordered_list isn't currently added.
 
-### Example
-
 ### License
 `node-mpdsocket` is made available under the [MIT License](http://www.opensource.org/licenses/mit-license.php). A copy of the license is distributed with this software.
 
