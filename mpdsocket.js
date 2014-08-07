@@ -12,7 +12,7 @@
 var net = require('net');
 var sys = require('sys');
 
-function mpdSocket(host,port) {
+function mpdSocket(host,port,autoreopen) {
 	if (!host) { 
 		this.host = "localhost";
 	} else {
@@ -23,6 +23,12 @@ function mpdSocket(host,port) {
 		this.port = 6600;
 	} else {
 		this.port = port;
+	}
+
+	if (typeof autoreopen === 'undefined') {
+		this.autoreopen = true;
+	} else {
+		this.autoreopen = autoreopen;
 	}
 
 	this.callbacks = [];
@@ -141,7 +147,13 @@ mpdSocket.prototype = {
 			this.isOpen = true;
 			this.socket.setEncoding('UTF-8');
 			this.socket.addListener('data',function(data) { self.bufferData.call(self,data); self._send(); });
-			this.socket.addListener('end',function() { self.isOpen = false; });
+			this.socket.addListener('end',function() {
+				self.isOpen = false;
+				if (!this.autoreopen) {
+					this.commands = [];
+					this.callbacks = [];
+				}
+			});
 		}
 	},
 
@@ -156,11 +168,15 @@ mpdSocket.prototype = {
 			this.commands.push(req);
 			if (this.commands.length == 1) this._send();
 		} else {
-			var self = this;
-			this.open(this.host,this.port);
-			this.on('connect',function() {
-				self.send(req,callback);
-			});
+			if (this.autoreopen) {
+				var self = this;
+				this.open(this.host,this.port);
+				this.on('connect',function() {
+					self.send(req,callback);
+				});
+			} else {
+				throw "mpdsocketNotOpenException";
+			}
 		}
 	}
 };
